@@ -3,7 +3,7 @@ from django.db import models
 
 class Patient(models.Model):
     channel = models.CharField(max_length=100, unique=True)
-    status = models.TextChoices('queue', 'chatting')
+    status = models.CharField(max_length=10, default='queue')
 
 
 class Doctor(models.Model):
