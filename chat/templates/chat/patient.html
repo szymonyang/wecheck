@@ -10,11 +10,7 @@
     <input id="chat-message-submit" type="button" value="Send"/>
 </body>
 <script>
-    var roomName = {{ room_name_json }};
-
-    var chatSocket = new WebSocket(
-        'ws://' + window.location.host +
-        '/ws/chat/' + roomName + '/');
+    var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient/');
 
     chatSocket.onmessage = function(e) {
         var data = JSON.parse(e.data);

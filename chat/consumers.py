@@ -1,18 +1,27 @@
 # chat/consumers.py
-from channels.generic.websocket import WebsocketConsumer
-import json
+from channels.generic.websocket import JsonWebsocketConsumer
 
-class ChatConsumer(WebsocketConsumer):
+
+class PatientConsumer(JsonWebsocketConsumer):
     def connect(self):
         self.accept()
+        self.send_json({"message": "Hello patient"})
 
     def disconnect(self, close_code):
         pass
 
-    def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+    def receive_json(self, content):
+        print(f"{self.channel_name} received data {content}")
 
-        self.send(text_data=json.dumps({
-            'message': message
-        }))
+
+class DoctorConsumer(JsonWebsocketConsumer):
+    def connect(self):
+        self.accept()
+
+        self.send_json({"message": "Hello doctor"})
+
+    def disconnect(self, close_code):
+        pass
+
+    def receive_json(self, content):
+        print(f"{self.channel_name} received data {content}")
