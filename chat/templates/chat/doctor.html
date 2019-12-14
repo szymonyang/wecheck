@@ -5,17 +5,40 @@
     <title>Chat Room</title>
 </head>
 <body>
+    <b>Queue</b>
+    <div id="queue"></div>
+    <hr>
     <textarea id="chat-log" cols="100" rows="20"></textarea><br/>
     <input id="chat-message-input" type="text" size="100"/><br/>
     <input id="chat-message-submit" type="button" value="Send"/>
 </body>
 <script>
     var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/doctor/');
+    var state = "queue";
 
     chatSocket.onmessage = function(e) {
         var data = JSON.parse(e.data);
-        var message = data['message'];
-        document.querySelector('#chat-log').value += (message + '\n');
+
+        if (data['type'] == "queue") {
+            var queue_element = document.querySelector('#queue')
+            queue_element.innerHTML = '';
+
+            for (i in data['queue']) {
+                var button = document.createElement("button");
+                button.innerHTML = "Chat to " + i;
+                queue_element.appendChild(button);
+            }
+
+            console.log("Updating queue")
+            console.log(data)
+
+        } else if (data['type'] == "message") {
+            var message = data['message'];
+            document.querySelector('#chat-log').value += (message + '\n');
+        } else {
+            console.error("Unsupported message type")
+            console.error(data)
+        }
     };
 
     chatSocket.onclose = function(e) {

@@ -16,7 +16,8 @@ class PatientConsumer(JsonWebsocketConsumer):
 class DoctorConsumer(JsonWebsocketConsumer):
     def connect(self):
         self.accept()
-        self.send_json({"message": "Hello doctor"})
+        self.send_json({"type": "message", "message": "Hello doctor"})
+        self.send_json({"type": "queue", "queue": [1, 2, 3, 4]})
 
     def disconnect(self, close_code):
         pass
