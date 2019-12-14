@@ -1,4 +1,3 @@
-# chat/consumers.py
 from channels.generic.websocket import JsonWebsocketConsumer
 
 
@@ -17,7 +16,6 @@ class PatientConsumer(JsonWebsocketConsumer):
 class DoctorConsumer(JsonWebsocketConsumer):
     def connect(self):
         self.accept()
-
         self.send_json({"message": "Hello doctor"})
 
     def disconnect(self, close_code):
