@@ -27,9 +27,10 @@ var chatArea = document.querySelector('#chat_area');
 var queueElement = document.querySelector('#queue');
 queueElement.addEventListener('click', function(ev) {
     if (ev.target.tagName === 'P') {
-        console.log();
+        console.log(ev.target);
+        console.log(ev.target.id);
         chatSocket.send(JSON.stringify({
-            'type': 'connect',
+            'action': 'connect',
             'destination': ev.target.id,
         }));
         queueArea.hidden = true;
@@ -42,8 +43,8 @@ function updateQueue(queueData) {
     queueElement.innerHTML = '';
     for (i in queueData) {
         var item = document.createElement("p");
-        item.innerHTML = i;
-        item.id = i;
+        item.innerHTML = queueData[i];
+        item.id = queueData[i];
         queueElement.appendChild(item);
     }
 }
@@ -51,9 +52,9 @@ function updateQueue(queueData) {
 // Route incoming message
 chatSocket.onmessage = function(e) {
     var data = JSON.parse(e.data);
-    if (data['type'] == "queue") {
+    if (data['action'] == "queue") {
         updateQueue(data['queue'])
-    } else if (data['type'] == "message") {
+    } else if (data['action'] == "message") {
         var message = data['message'];
         document.querySelector('#chat-log').value += (message + '\n');
     } else {
@@ -90,7 +91,7 @@ document.querySelector('#chat-message-exit').onclick = function(e) {
     chatArea.hidden = true;
     queueArea.hidden = false;
     chatSocket.send(JSON.stringify({
-        'type': 'exit',
+        'action': 'exit',
     }));
 };
 </script>

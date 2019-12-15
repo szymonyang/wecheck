@@ -4,7 +4,7 @@ from asgiref.sync import async_to_sync
 
 
 def get_queue():
-    return [i.id for i in Patient.objects.filter(status="queue")]
+    return [i.channel for i in Patient.objects.filter(status="queue")]
 
 
 class PatientConsumer(JsonWebsocketConsumer):
@@ -18,22 +18,25 @@ class PatientConsumer(JsonWebsocketConsumer):
 
     def receive_json(self, content):
         print(f"{self.channel_name} received data {content}")
+        self.send_json(content)
 
 
 class DoctorConsumer(JsonWebsocketConsumer):
     def connect(self):
         Doctor.objects.create(channel=self.channel_name)
         self.accept()
-        self.send_json({"type": "queue", "queue": get_queue()})
+        queue = get_queue()
+        print(queue)
+        self.send_json({"action": "queue", "queue": queue})
 
     def disconnect(self, close_code):
         Doctor.objects.get(channel=self.channel_name).delete()
 
     def receive_json(self, content):
         print(f"{self.channel_name} received data {content}")
-        if content['type'] == 'connect':
+        if content.get('action') == 'connect':
             # Update model state
-            patient = Patient.objects.get(id=content['destination'])
+            patient = Patient.objects.get(channel=content['destination'])
             patient.status = "chatting"
             patient.save()
 
@@ -43,6 +46,8 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
             # TODO:Update queue state for all doctors
 
+            async_to_sync(self.channel_layer.send)(doctor.channel, {"type": "send_json", 'message': 'Now chatting with the patient'})
+
             # Update patient
-            async_to_sync(self.channel_layer.send)(patient.channel, {'type': 'start'})
-            async_to_sync(self.channel_layer.send)(patient.channel, {'message': 'Now chatting with a doctor'})
+            async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", 'action': 'start'})
+            async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", 'message': 'Now chatting with a doctor'})
