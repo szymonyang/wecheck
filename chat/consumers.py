@@ -17,8 +17,14 @@ class PatientConsumer(JsonWebsocketConsumer):
         # TODO:Update queue state for all doctors
 
     def receive_json(self, content):
-        print(f"{self.channel_name} received data {content}")
-        self.send_json(content)
+        patient = Patient.objects.get(channel=self.channel_name)
+        if patient.status == "queue":
+            print(f"{self.channel_name} received data {content} but patient is in queue so message discarded")
+        else:
+            print(f"{self.channel_name} received data {content}, sending to doctor")
+            doctor = Doctor.objects.get(patient=patient)
+            async_to_sync(self.channel_layer.send)(doctor.channel, {"type": "send_json", 'message': content['message']})
+            self.send_json(content)
 
 
 class DoctorConsumer(JsonWebsocketConsumer):
@@ -51,3 +57,8 @@ class DoctorConsumer(JsonWebsocketConsumer):
             # Update patient
             async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", 'action': 'start'})
             async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", 'message': 'Now chatting with a doctor'})
+        else:
+            print(f"{self.channel_name} received data {content}, sending to patient")
+            doctor = Doctor.objects.get(channel=self.channel_name)
+            async_to_sync(self.channel_layer.send)(doctor.patient.channel, {"type": "send_json", 'message': content['message']})
+            self.send_json(content)
