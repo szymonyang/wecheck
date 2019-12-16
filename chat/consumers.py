@@ -15,12 +15,18 @@ def queue_message(num):
     return "You are at the front of the queue."
 
 
-def queue_update_patients():
+def queue_update_patients(channel_layer):
     for num, patient in enumerate(Patient.objects.filter(status="queue").order_by("id")):
-        async_to_sync(self.channel_layer.send)(
+        async_to_sync(channel_layer.send)(
             patient.channel, {"type": "send_json", "action": "queue_position", "message": queue_message(num)}
         )
 
+def queue_update_doctors(channel_layer):
+    queue = get_queue()
+    for doctor in Doctor.objects.filter(patient_isnull=True):
+        async_to_sync(channel_layer.send)(
+            doctor.channel, {"type": "send_json", "action": "queue", "message": queue}
+        )
 
 class PatientConsumer(JsonWebsocketConsumer):
     def connect(self):
@@ -30,8 +36,15 @@ class PatientConsumer(JsonWebsocketConsumer):
         self.send_json({"action": "queue_position", "message": queue_message(queue_length - 1)})
 
     def disconnect(self, close_code):
-        Patient.objects.get(channel=self.channel_name).delete()
-        # TODO:Update queue state for all doctors
+        patient = Patient.objects.get(channel=self.channel_name)
+        if patient.status != "queue":
+            doctor = Doctor.objects.filter(patient=patient)[0]
+            async_to_sync(self.channel_layer.send)(doctor.channel, {"type": "send_json", "action": "patient_left"})
+            doctor.patient = None
+            doctor.save()
+        patient.delete()
+        queue_update_patients(self.channel_layer)
+        queue_update_doctors(self.channel_layer)
 
     def receive_json(self, content):
         patient = Patient.objects.get(channel=self.channel_name)
@@ -63,28 +76,38 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
     def receive_json(self, content):
         print(f"{self.channel_name} received data {content}")
-        if content.get("action") == "connect":
-            # Update model state
+        action = content.get("action")
+        if action == "reserve":
             patient = Patient.objects.get(channel=content["destination"])
-            patient.status = "chatting"
+            patient.status = "reserved"
             patient.save()
-
             doctor = Doctor.objects.get(channel=self.channel_name)
             doctor.patient = patient
             doctor.save()
+            self.send_json({"action": "cdss", "message": "CDSS patient content here"})
 
-            # TODO:Update queue state for all doctors
-
+            queue_update_patients(self.channel_layer)
+            queue_update_doctors(self.channel_layer)
+        elif action == "begin_chat":
+            # Update model state
+            doctor = Doctor.objects.get(channel=self.channel_name)
+            doctor.patient.status = "chatting"
+            patient.save()
             async_to_sync(self.channel_layer.send)(
                 doctor.channel, {"type": "send_json", "message": "Now chatting with the patient"}
             )
-
             # Update patient
             async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", "action": "start"})
             async_to_sync(self.channel_layer.send)(
                 patient.channel, {"type": "send_json", "message": "Now chatting with a doctor"}
             )
-        else:
+        elif action == "unreserve":
+            # Put patient back in queue
+            # Put doctor back to queue
+        elif action == "end_chat":
+            # Delete patient
+            # Send doctor the queue
+        elif action == "chat":
             print(f"{self.channel_name} received data {content}, sending to patient")
             doctor = Doctor.objects.get(channel=self.channel_name)
             async_to_sync(self.channel_layer.send)(
