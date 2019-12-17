@@ -24,7 +24,7 @@ def queue_update_patients(channel_layer):
 
 def queue_update_doctors(channel_layer):
     queue = get_queue()
-    for doctor in Doctor.objects.filter(patient_isnull=True):
+    for doctor in Doctor.objects.filter(patient=None):
         async_to_sync(channel_layer.send)(doctor.channel, {"type": "send_json", "action": "queue", "message": queue})
 
 
@@ -59,7 +59,7 @@ class PatientConsumer(JsonWebsocketConsumer):
                 async_to_sync(self.channel_layer.send)(
                     doctor.channel, {"type": "send_json", "message": content["message"]}
                 )
-                self.send_json(content)
+                self.send_json({"action": "chat", "message": content["message"]})
 
 
 class DoctorConsumer(JsonWebsocketConsumer):
