@@ -19,15 +19,14 @@
     <div id="chat_area" hidden>
         <textarea id="chat-log" cols="100" rows="20"></textarea><br />
         <input id="chat-message-input" type="text" size="100" /><br />
-        <input id="chat-message-send" type="button" value="Send"/>
-        <input id="chat-message-exit" type="button" value="Exit"/>
+        <input id="chat-message-send" type="button" value="Send" />
+        <input id="chat-message-exit" type="button" value="Exit" />
     </div>
 </body>
-
 <script>
 var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/doctor/');
 
-function viewArea(areaId){
+function viewArea(areaId) {
     document.querySelector('#queue_area').hidden = true;
     document.querySelector('#chat_area').hidden = true;
     document.querySelector('#cdss_area').hidden = true;
@@ -39,7 +38,7 @@ function viewArea(areaId){
 var queueElement = document.querySelector('#queue');
 queueElement.addEventListener('click', function(ev) {
     if (ev.target.tagName === 'P') {
-        chatSocket.send(JSON.stringify({'action': 'reserve', 'message': ev.target.id}));
+        chatSocket.send(JSON.stringify({ 'action': 'reserve', 'message': ev.target.id }));
         viewArea("cdss_area")
     }
 }, false);
@@ -83,23 +82,23 @@ document.querySelector('#chat-message-input').onkeyup = function(e) {
 
 document.querySelector('#chat-message-unreserve').onclick = function(e) {
     viewArea("queue_area")
-    chatSocket.send(JSON.stringify({'action': 'unreserve'}));
+    chatSocket.send(JSON.stringify({ 'action': 'unreserve' }));
 };
 
 document.querySelector('#chat-message-chat').onclick = function(e) {
     viewArea("chat_area")
-    chatSocket.send(JSON.stringify({'action': 'start_chat'}));
+    chatSocket.send(JSON.stringify({ 'action': 'start_chat' }));
 };
 
 document.querySelector('#chat-message-send').onclick = function(e) {
     var messageInputDom = document.querySelector('#chat-message-input');
-    chatSocket.send(JSON.stringify({'action':'chat', 'message': messageInputDom.value}));
+    chatSocket.send(JSON.stringify({ 'action': 'chat', 'message': messageInputDom.value }));
     messageInputDom.value = '';
 };
 
 document.querySelector('#chat-message-exit').onclick = function(e) {
     viewArea("queue_area")
-    chatSocket.send(JSON.stringify({'action': 'end_chat'}));
+    chatSocket.send(JSON.stringify({ 'action': 'end_chat' }));
     document.querySelector('#chat-log').value = '';
     document.querySelector('#chat-message-input').value = '';
 };
