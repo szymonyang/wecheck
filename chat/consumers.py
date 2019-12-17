@@ -15,6 +15,10 @@ for line in computer_names:
 pprint(computer_lookup)
 
 
+def print_message(ip, channel, msg_type, content):
+    print(f"{ip}:{computer_lookup.get(ip)}:{channel.split('!')[1]} {msg_type} {content}")
+
+
 def get_queue():
     return [i.id for i in Patient.objects.filter(status="queue")]
 
@@ -42,9 +46,7 @@ def queue_update_doctors(channel_layer):
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print(
-            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} sending {content}"
-        )
+        print_message(self.scope["client"][0], self.channel_name, "received", content)
         super().send_json(content)
 
     def connect(self):
@@ -65,10 +67,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         queue_update_doctors(self.channel_layer)
 
     def receive_json(self, content):
-        print(f"{self.scope}")
-        print(
-            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} received data {content}"
-        )
+        print_message(self.scope["client"][0], self.channel_name, "sent", content)
         action = content.get("action")
         if action == "chat":
             patient = Patient.objects.get(channel=self.channel_name)
@@ -82,9 +81,7 @@ class PatientConsumer(JsonWebsocketConsumer):
 
 class DoctorConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print(
-            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} sending {content}"
-        )
+        print_message(self.scope["client"][0], self.channel_name, "received", content)
         super().send_json(content)
 
     def connect(self):
@@ -102,9 +99,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         doctor.delete()
 
     def receive_json(self, content):
-        print(
-            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} received data {content}"
-        )
+        print_message(self.scope["client"][0], self.channel_name, "sent", content)
         action = content.get("action")
         if action == "reserve":
             patient = Patient.objects.get(id=content["message"])
@@ -113,7 +108,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
             doctor = Doctor.objects.get(channel=self.channel_name)
             doctor.patient = patient
             doctor.save()
-            self.send_json({"action": "cdss", "message": "CDSS patient content here"})
+            self.send_json({"action": "cdss", "message": f"CDSS patient {patient.id} content here"})
             async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", "action": "reserve"})
             queue_update_patients(self.channel_layer)
             queue_update_doctors(self.channel_layer)
@@ -138,7 +133,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
                 doctor.patient.channel,
                 {"type": "send_json", "action": "chat", "message": f"Doctor: {content['message']}"},
             )
-            self.send_json({"action": "chat", "message": f"You   : {content['message']}"})
+            self.send_json({"action": "chat", "message": f"You    : {content['message']}"})
         elif action == "unreserve":
             doctor = Doctor.objects.get(channel=self.channel_name)
             doctor.patient.status = "queue"
