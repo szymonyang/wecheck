@@ -9,7 +9,7 @@
 <body>
     <div id="queue_area">
         <b>Queue</b>
-        <div id="queue"></div>
+        <ul id="queue"></ul>
     </div>
     <div id="cdss_area" hidden>
         <div id="cdss">CDSS content here</div>
@@ -37,7 +37,7 @@ function viewArea(areaId) {
 // Deal with queue button press
 var queueElement = document.querySelector('#queue');
 queueElement.addEventListener('click', function(ev) {
-    if (ev.target.tagName === 'P') {
+    if (ev.target.tagName === 'LI') {
         chatSocket.send(JSON.stringify({ 'action': 'reserve', 'message': ev.target.id }));
         viewArea("cdss_area")
     }
@@ -47,8 +47,8 @@ queueElement.addEventListener('click', function(ev) {
 function updateQueue(queueData) {
     queueElement.innerHTML = '';
     for (i in queueData) {
-        var item = document.createElement("p");
-        item.innerHTML = queueData[i];
+        var item = document.createElement("li");
+        item.innerHTML = "Patient "+queueData[i];
         item.id = queueData[i];
         queueElement.appendChild(item);
     }
@@ -59,9 +59,12 @@ chatSocket.onmessage = function(e) {
     var data = JSON.parse(e.data);
     console.log(data);
     if (data.action == "queue") {
+        viewArea("queue_area")
         updateQueue(data.message);
     } else if (data.action == "chat") {
         document.querySelector('#chat-log').value += (data.message + '\n');
+    } else if (data.action == "patient_left") {
+        alert("Patient left");
     } else {
         console.error("Unsupported message type")
         console.error(data)

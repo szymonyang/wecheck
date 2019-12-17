@@ -4,7 +4,7 @@ from asgiref.sync import async_to_sync
 
 
 def get_queue():
-    return [i.channel for i in Patient.objects.filter(status="queue")]
+    return [i.id for i in Patient.objects.filter(status="queue")]
 
 
 def queue_message(num):
@@ -86,7 +86,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         print(f"{self.channel_name} received data {content}")
         action = content.get("action")
         if action == "reserve":
-            patient = Patient.objects.get(channel=content["message"])
+            patient = Patient.objects.get(id=content["message"])
             patient.status = "reserved"
             patient.save()
             doctor = Doctor.objects.get(channel=self.channel_name)
@@ -102,18 +102,20 @@ class DoctorConsumer(JsonWebsocketConsumer):
             doctor.patient.status = "chatting"
             doctor.patient.save()
 
-            self.send_json({"action": "chat", "message": "Now chatting with the patient"})
+            self.send_json({"action": "chat", "message": "You are now chatting with the patient"})
             # Update patient
             async_to_sync(self.channel_layer.send)(
                 doctor.patient.channel, {"type": "send_json", "action": "start_chat"}
             )
             async_to_sync(self.channel_layer.send)(
-                doctor.patient.channel, {"type": "send_json", "action": "chat", "message": "Now chatting with a doctor"}
+                doctor.patient.channel,
+                {"type": "send_json", "action": "chat", "message": "You are now chatting with a doctor"},
             )
         elif action == "chat":
             doctor = Doctor.objects.get(channel=self.channel_name)
             async_to_sync(self.channel_layer.send)(
-                doctor.patient.channel, {"type": "send_json", "action": "chat", "message": f"Doctor: {content['message']}"}
+                doctor.patient.channel,
+                {"type": "send_json", "action": "chat", "message": f"Doctor: {content['message']}"},
             )
             self.send_json({"action": "chat", "message": f"You   : {content['message']}"})
         elif action == "unreserve":
@@ -126,5 +128,6 @@ class DoctorConsumer(JsonWebsocketConsumer):
             queue_update_doctors(self.channel_layer)
         elif action == "end_chat":
             doctor = Doctor.objects.get(channel=self.channel_name)
+            async_to_sync(self.channel_layer.send)(doctor.patient.channel, {"type": "send_json", "action": "end_chat"})
             doctor.patient.delete()
             self.send_json({"action": "queue", "message": get_queue()})

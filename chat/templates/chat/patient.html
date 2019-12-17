@@ -24,8 +24,6 @@ chatSocket.onmessage = function(e) {
         document.querySelector('#chatArea').hidden = false;
         document.querySelector('#start-message').hidden = true;
     } else if (data.action == 'queue'){
-        console.log("Setting start message to " + data.message)
-        console.log(document.querySelector('#start-message'))
         document.querySelector('#start-message').innerHTML = data.message;
     } else if (data.action == 'reserve'){
         document.querySelector('#start-message').innerHTML = "A doctor is viewing your case now.";
@@ -33,6 +31,10 @@ chatSocket.onmessage = function(e) {
         document.querySelector('#chat-log').value += (data.message + '\n');
     } else if (data.action == 'doctor_left'){
         alert(data.message);
+    } else if (data.action == 'end_chat'){
+        document.querySelector('#chat-log').value += ('The doctor has ended the chat\n');
+        document.querySelector('#chat-message-input').hidden = true;
+        document.querySelector('#chat-message-submit').hidden = true;
     }
 };
 
