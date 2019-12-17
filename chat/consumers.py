@@ -1,6 +1,18 @@
 from channels.generic.websocket import JsonWebsocketConsumer
 from .models import Doctor, Patient
 from asgiref.sync import async_to_sync
+import os
+from pprint import pprint
+
+
+# Create a lookup table for local IP addresses to give computers names
+os.system("arp -a > network.txt")
+computer_names = open("network.txt", "r").readlines()
+computer_lookup = {}
+for line in computer_names:
+    line = line.split()
+    computer_lookup[line[1][1:-1]] = line[0].replace(".hub", "")
+pprint(computer_lookup)
 
 
 def get_queue():
@@ -30,7 +42,9 @@ def queue_update_doctors(channel_layer):
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print(f"{self.channel_name} sending {content}")
+        print(
+            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} sending {content}"
+        )
         super().send_json(content)
 
     def connect(self):
@@ -51,7 +65,10 @@ class PatientConsumer(JsonWebsocketConsumer):
         queue_update_doctors(self.channel_layer)
 
     def receive_json(self, content):
-        print(f"{self.channel_name} received data {content}")
+        print(f"{self.scope}")
+        print(
+            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} received data {content}"
+        )
         action = content.get("action")
         if action == "chat":
             patient = Patient.objects.get(channel=self.channel_name)
@@ -65,7 +82,9 @@ class PatientConsumer(JsonWebsocketConsumer):
 
 class DoctorConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print(f"{self.channel_name} sending {content}")
+        print(
+            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} sending {content}"
+        )
         super().send_json(content)
 
     def connect(self):
@@ -83,7 +102,9 @@ class DoctorConsumer(JsonWebsocketConsumer):
         doctor.delete()
 
     def receive_json(self, content):
-        print(f"{self.channel_name} received data {content}")
+        print(
+            f"IP:{self.scope['client'][0]}:{computer_lookup.get(self.scope['client'][0], self.channel_name)} received data {content}"
+        )
         action = content.get("action")
         if action == "reserve":
             patient = Patient.objects.get(id=content["message"])
