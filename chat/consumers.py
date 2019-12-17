@@ -39,6 +39,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         # Add patient to the end of the queue
         queue_length = Patient.objects.filter(status="queue").count()
         self.send_json({"action": "queue", "message": queue_message(queue_length - 1)})
+        queue_update_doctors(self.channel_layer)
 
     def disconnect(self, close_code):
         patient = Patient.objects.get(channel=self.channel_name)
@@ -79,7 +80,6 @@ class DoctorConsumer(JsonWebsocketConsumer):
                 doctor.patient.channel,
                 {"type": "send_json", "action": "doctor_left", "message": "The doctor left the chat. Exiting."},
             )
-        doctor.patient.delete()
         doctor.delete()
 
     def receive_json(self, content):

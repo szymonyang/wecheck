@@ -11,30 +11,35 @@
         <b>Queue</b>
         <div id="queue"></div>
     </div>
+    <div id="cdss_area" hidden>
+        <div id="cdss">CDSS content here</div>
+        <input id="chat-message-chat" type="button" value="Chat" />
+        <input id="chat-message-unreserve" type="button" value="Unreserve" />
+    </div>
     <div id="chat_area" hidden>
         <textarea id="chat-log" cols="100" rows="20"></textarea><br />
         <input id="chat-message-input" type="text" size="100" /><br />
-        <input id="chat-message-submit" type="button" value="Send" />
-        <input id="chat-message-exit" type="button" value="Exit" />
+        <input id="chat-message-send" type="button" value="Send"/>
+        <input id="chat-message-exit" type="button" value="Exit"/>
     </div>
 </body>
 <script>
 var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/doctor/');
-var queueArea = document.querySelector('#queue_area');
-var chatArea = document.querySelector('#chat_area');
+
+function viewArea(areaId){
+    document.querySelector('#queue_area').hidden = true;
+    document.querySelector('#chat_area').hidden = true;
+    document.querySelector('#cdss_area').hidden = true;
+    document.getElementById(areaId).hidden = false;
+}
+
 
 // Deal with queue button press
 var queueElement = document.querySelector('#queue');
 queueElement.addEventListener('click', function(ev) {
     if (ev.target.tagName === 'P') {
-        console.log(ev.target);
-        console.log(ev.target.id);
-        chatSocket.send(JSON.stringify({
-            'action': 'connect',
-            'destination': ev.target.id,
-        }));
-        queueArea.hidden = true;
-        chatArea.hidden = false;
+        chatSocket.send(JSON.stringify({'action': 'reserve', 'destination': ev.target.id}));
+        viewArea("cdss_area")
     }
 }, false);
 
@@ -52,11 +57,11 @@ function updateQueue(queueData) {
 // Route incoming message
 chatSocket.onmessage = function(e) {
     var data = JSON.parse(e.data);
-    if (data['action'] == "queue") {
-        updateQueue(data['queue'])
-    } else if (data['message']) {
-        var message = data['message'];
-        document.querySelector('#chat-log').value += (message + '\n');
+    console.log(data);
+    if (data.action == "queue") {
+        updateQueue(data.message);
+    } else if (data.action == "chat") {
+        document.querySelector('#chat-log').value += (data.message + '\n');
     } else {
         console.error("Unsupported message type")
         console.error(data)
@@ -71,28 +76,28 @@ chatSocket.onclose = function(e) {
 // Make enter key send the message
 document.querySelector('#chat-message-input').onkeyup = function(e) {
     if (e.keyCode === 13) { // enter, return
-        document.querySelector('#chat-message-submit').click();
+        document.querySelector('#chat-message-send').click();
     }
 };
 
-// Send chat message
-document.querySelector('#chat-message-submit').onclick = function(e) {
-    var messageInputDom = document.querySelector('#chat-message-input');
-    var message = messageInputDom.value;
-    chatSocket.send(JSON.stringify({
-        'message': message
-    }));
+document.querySelector('#chat-message-unreserve').onclick = function(e) {
+    viewArea("queue_area")
+    chatSocket.send(JSON.stringify({'action': 'unreserve'}));
+};
 
+document.querySelector('#chat-message-chat').onclick = function(e) {
+    viewArea("chat_area")
+};
+
+document.querySelector('#chat-message-send').onclick = function(e) {
+    var messageInputDom = document.querySelector('#chat-message-input');
+    chatSocket.send(JSON.stringify({'message': messageInputDom.value}));
     messageInputDom.value = '';
 };
 
-// End chat
 document.querySelector('#chat-message-exit').onclick = function(e) {
-    chatArea.hidden = true;
-    queueArea.hidden = false;
-    chatSocket.send(JSON.stringify({
-        'action': 'exit',
-    }));
+    viewArea("queue_area")
+    chatSocket.send(JSON.stringify({'action': 'end_chat'}));
 };
 </script>
 
