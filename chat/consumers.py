@@ -58,7 +58,7 @@ class PatientConsumer(JsonWebsocketConsumer):
             if patient.status == "chatting":
                 doctor = Doctor.objects.get(patient=patient)
                 async_to_sync(self.channel_layer.send)(
-                    doctor.channel, {"type": "send_json", "message": content["message"]}
+                    doctor.channel, {"type": "send_json", "action": "chat", "message": content["message"]}
                 )
                 self.send_json({"action": "chat", "message": content["message"]})
 
@@ -104,9 +104,11 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
             self.send_json({"action": "chat", "message": "Now chatting with the patient"})
             # Update patient
-            async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", "action": "start_chat"})
             async_to_sync(self.channel_layer.send)(
-                patient.channel, {"type": "send_json", "action": "chat", "message": "Now chatting with a doctor"}
+                doctor.patient.channel, {"type": "send_json", "action": "start_chat"}
+            )
+            async_to_sync(self.channel_layer.send)(
+                doctor.patient.channel, {"type": "send_json", "action": "chat", "message": "Now chatting with a doctor"}
             )
         elif action == "chat":
             doctor = Doctor.objects.get(channel=self.channel_name)
