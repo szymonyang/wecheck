@@ -3,6 +3,7 @@ from .models import Doctor, Patient
 from asgiref.sync import async_to_sync
 import os
 from pprint import pprint
+from urllib.parse import parse_qs
 
 
 # Create a lookup table for local IP addresses to give computers names
@@ -25,7 +26,7 @@ def get_queue():
 
 def queue_message(num):
     if num > 1:
-        return f"There are {num-1} people ahead in the queue."
+        return f"There are {num} people ahead in the queue."
     elif num == 1:
         return "There is one person ahead in the queue."
     return "You are at the front of the queue."
@@ -43,6 +44,9 @@ def queue_update_doctors(channel_layer):
     for doctor in Doctor.objects.filter(patient=None):
         async_to_sync(channel_layer.send)(doctor.channel, {"type": "send_json", "action": "queue", "message": queue})
 
+
+def get_browser(query_string):
+    return parse_qs(query_string)[b'browser'][0]
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
@@ -85,6 +89,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         super().send_json(content)
 
     def connect(self):
+        print(f"Doctor joined with browser {get_browser(self.scope['query_string'])}")
         Doctor.objects.create(channel=self.channel_name)
         self.accept()
         self.send_json({"action": "queue", "message": get_queue()})
