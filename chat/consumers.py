@@ -1,27 +1,26 @@
 from channels.generic.websocket import JsonWebsocketConsumer
-from .models import Doctor, Patient
-from asgiref.sync import async_to_sync
+from .models import Doctor, PatientQueue
+from asgiref.sync import async_to_sync, sync_to_async
 import os
 from pprint import pprint
 from urllib.parse import parse_qs
+import asyncio
 
 
-# Create a lookup table for local IP addresses to give computers names
-os.system("arp -a > network.txt")
-computer_names = open("network.txt", "r").readlines()
-computer_lookup = {}
-for line in computer_names:
-    line = line.split()
-    computer_lookup[line[1][1:-1]] = line[0].replace(".hub", "")
-pprint(computer_lookup)
+async def send_with_delay(delay, channel_layer, channel, message):
+    print("send_with_delay called", flush=True)
+    await asyncio.sleep(delay)
+    print("send_with_delay sleep finished", flush=True)
+    await channel_layer.send(channel, message)
+    print("send_with_delay send finished", flush=True)
 
 
 def print_message(ip, channel, msg_type, content):
-    print(f"{ip}:{computer_lookup.get(ip)}:{channel.split('!')[1]} {msg_type} {content}")
+    print(f"{ip}:{channel.split('!')[1]} {msg_type} {content}")
 
 
 def get_queue():
-    return [i.id for i in Patient.objects.filter(status="queue")]
+    return [i.id for i in PatientQueue.objects.filter(state="QUEUE", status="ACTIVE")]
 
 
 def queue_message(num):
@@ -33,7 +32,7 @@ def queue_message(num):
 
 
 def queue_update_patients(channel_layer):
-    for num, patient in enumerate(Patient.objects.filter(status="queue").order_by("id")):
+    for num, patient in enumerate(PatientQueue.objects.filter(state="QUEUE", status="ACTIVE").order_by("id")):
         async_to_sync(channel_layer.send)(
             patient.channel, {"type": "send_json", "action": "queue", "message": queue_message(num)}
         )
@@ -46,7 +45,8 @@ def queue_update_doctors(channel_layer):
 
 
 def get_browser(query_string):
-    return parse_qs(query_string)[b'browser'][0]
+    return parse_qs(query_string)[b"browser"][0]
+
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
@@ -54,19 +54,39 @@ class PatientConsumer(JsonWebsocketConsumer):
         super().send_json(content)
 
     def connect(self):
-        Patient.objects.create(channel=self.channel_name, status="queue")
+        browser = get_browser(self.scope["query_string"])
+        patient, _ = PatientQueue.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
+
+        if patient.state == "QUEUE":
+            patient.status = "ACTIVE"
+            patient.save()
+            print("Calling send_with_delay")
+            sync_to_async(send_with_delay)(1, self.channel_layer, self.channel_name, {"type": "send_json", "action":"panic"})
+            queue_update_patients(self.channel_layer)
+            queue_update_doctors(self.channel_layer)
+        else:
+            # Patient is trying to rejoin with their doctor
+            assigned_doctor = Doctor.objects.get(patient=patient)
+            if assigned_doctor.status == "WAIT":
+                assigned_doctor.status = "ACTIVE"
+                patient.status = "ACTIVE"
+                # TODO Deal with rejoin
+            else:
+                patient.status = "WAIT"
+                # TODO message patient
+                # TODO add timeout function here
         self.accept()
-        # Add patient to the end of the queue
-        queue_length = Patient.objects.filter(status="queue").count()
-        self.send_json({"action": "queue", "message": queue_message(queue_length - 1)})
-        queue_update_doctors(self.channel_layer)
 
     def disconnect(self, close_code):
-        patient = Patient.objects.get(channel=self.channel_name)
-        if patient.status == "chatting":
-            doctor = Doctor.objects.filter(patient=patient)[0]
-            async_to_sync(self.channel_layer.send)(doctor.channel, {"type": "send_json", "action": "patient_left"})
-        patient.delete()  # This sets null for the doctor
+        patient = PatientQueue.objects.get(channel=self.channel_name)
+        patient.status = "USER_DC"
+        patient.save()
+        if patient.state in ("RESERVE", "CHAT"):
+            doctor = Doctor.objects.get(patient=patient)
+            doctor.status = "WAIT"
+            doctor.save()
+            # TODO Handle doctor waiting here
+            # async_to_sync(self.channel_layer.send)(doctor.channel, {"type": "send_json", "action": "patient_left"})
         queue_update_patients(self.channel_layer)
         queue_update_doctors(self.channel_layer)
 
@@ -74,7 +94,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         print_message(self.scope["client"][0], self.channel_name, "sent", content)
         action = content.get("action")
         if action == "chat":
-            patient = Patient.objects.get(channel=self.channel_name)
+            patient = PatientQueue.objects.get(channel=self.channel_name)
             if patient.status == "chatting":
                 doctor = Doctor.objects.get(patient=patient)
                 async_to_sync(self.channel_layer.send)(
@@ -107,7 +127,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         print_message(self.scope["client"][0], self.channel_name, "sent", content)
         action = content.get("action")
         if action == "reserve":
-            patient = Patient.objects.get(id=content["message"])
+            patient = PatientQueue.objects.get(id=content["message"])
             patient.status = "reserved"
             patient.save()
             doctor = Doctor.objects.get(channel=self.channel_name)
