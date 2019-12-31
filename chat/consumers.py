@@ -46,7 +46,8 @@ def queue_update_doctors(channel_layer):
 
 
 def get_browser(query_string):
-    return parse_qs(query_string)[b'browser'][0]
+    return parse_qs(query_string)[b"browser"][0]
+
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
