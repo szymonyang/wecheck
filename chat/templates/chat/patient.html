@@ -16,7 +16,8 @@
     </div>
 </body>
 <script>
-var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient/');
+const browserTabId = Math.random().toString(36).substring(2);
+var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
 
 chatSocket.onmessage = function(e) {
     var data = JSON.parse(e.data);

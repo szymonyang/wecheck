@@ -1,8 +1,9 @@
 from django.urls import re_path
 
-from . import consumers
+from .patient import PatientConsumer
+from .doctor import DoctorConsumer
 
 websocket_urlpatterns = [
-    re_path(r'ws/patient', consumers.PatientConsumer),
-    re_path(r'ws/doctor', consumers.DoctorConsumer),
+    re_path(r'ws/patient', PatientConsumer),
+    re_path(r'ws/doctor', DoctorConsumer),
 ]
