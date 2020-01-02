@@ -33,10 +33,10 @@ class DoctorConsumer(JsonWebsocketConsumer):
                 doctor.save()
                 if patient.state == "RESERVED":
                     self.send_json({"action": "reserve"})
-                    self.message_patient(patient, {"action": "reserve"})
+                    self.message(patient, {"action": "reserve"})
                 elif patient.state == "CHAT":
                     self.send_json({"action": "start_chat"})
-                    self.message_patient(patient, {"action": "start_chat"})
+                    self.message(patient, {"action": "start_chat"})
             else:
                 doctor.status = "WAIT"
                 doctor.save()
@@ -51,7 +51,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
             patient = doctor.patient
             patient.status = "WAIT"
             patient.save()
-            self.message_patient(doctor.patient, {"action": "wait"})
+            self.message(doctor.patient, {"action": "wait"})
 
     def receive_json(self, content):
         print(f"{self.scope['client'][0]}, {self.channel_name}, sent, {content}")
@@ -70,7 +70,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         elif action == "wait_timeout":
             self.wait_timeout()
 
-    def message_patient(self, patient, message):
+    def message(self, patient, message):
         message["type"] = "send_json"
         async_to_sync(self.channel_layer.send)(patient.channel, message)
 
@@ -82,7 +82,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         doctor.patient = patient
         doctor.save()
         self.send_json({"action": "cdss", "message": f"CDSS patient {patient.id} content here"})
-        self.message_patient(patient, {"action": "reserve"})
+        self.message(patient, {"action": "reserve"})
         queue_update_patients(self.channel_layer)
         queue_update_doctors(self.channel_layer)
 
@@ -101,17 +101,17 @@ class DoctorConsumer(JsonWebsocketConsumer):
         doctor.patient.save()
 
         self.send_json({"action": "chat", "message": "You are now chatting with the patient"})
-        self.message_patient(doctor.patient, {"action": "start_chat"})
-        self.message_patient(doctor.patient, {"action": "chat", "message": "You are now chatting with a doctor"})
+        self.message(doctor.patient, {"action": "start_chat"})
+        self.message(doctor.patient, {"action": "chat", "message": "You are now chatting with a doctor"})
 
     def chat(self, message):
         doctor = Doctor.objects.get(channel=self.channel_name)
-        self.message_patient(doctor.patient, {"action": "chat", "message": f"Doctor: {message}"})
+        self.message(doctor.patient, {"action": "chat", "message": f"Doctor: {message}"})
         self.send_json({"action": "chat", "message": f"You    : {message}"})
 
     def end_chat(self):
         doctor = Doctor.objects.get(channel=self.channel_name)
-        self.message_patient(doctor.patient, {"action": "end_chat"})
+        self.message(doctor.patient, {"action": "end_chat"})
         doctor.patient.delete()
         self.send_json({"action": "queue", "message": get_queue()})
 
