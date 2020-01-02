@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Chat Room</title>
+    <title>Doctor</title>
 </head>
 
 <body>
@@ -27,18 +27,17 @@
 </body>
 <script>
 const browserTabId = Math.random().toString(36).substring(2);
+var waitTimeout;
 
 function connect() {
     var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/doctor?browser=' + browserTabId);
 
     function viewArea(areaId) {
-        document.querySelector('#spin').hidden = true;
-        document.querySelector('#queue_area').hidden = true;
-        document.querySelector('#chat_area').hidden = true;
-        document.querySelector('#cdss_area').hidden = true;
-        document.getElementById(areaId).hidden = false;
+        document.querySelector('#spin').hidden = (areaId != "spin");
+        document.querySelector('#queue_area').hidden = (areaId != "queue_area");
+        document.querySelector('#chat_area').hidden = (areaId != "chat_area");
+        document.querySelector('#cdss_area').hidden = (areaId != "cdss_area");
     }
-
 
     // Deal with queue button press
     var queueElement = document.querySelector('#queue');
@@ -80,8 +79,10 @@ function connect() {
             }, 10000);
         } else if (data.action == "reserve") {
             viewArea("cdss_area");
+            clearTimeout(waitTimeout);
         } else if (data.action == "start_chat") {
             viewArea("chat_area");
+            clearTimeout(waitTimeout);
         } else {
             console.error("Unsupported message type");
             console.error(data);
@@ -94,7 +95,7 @@ function connect() {
         viewArea("spin");
         setTimeout(function() {
             connect();
-        }, 1000);
+        }, 2000);
     };
 
     // Make enter key send the message

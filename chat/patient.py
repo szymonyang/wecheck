@@ -2,12 +2,12 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from .models import Doctor, PatientQueue
-from .utils import print_message, queue_update_doctors, queue_update_patients, get_browser, queue_message
+from .utils import queue_update_doctors, queue_update_patients, get_browser, queue_message
 
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print_message(self.scope["client"][0], self.channel_name, "received", content)
+        print(f"{self.scope['client'][0]}, {self.channel_name}, received, {content}")
         super().send_json(content)
 
     def connect(self):

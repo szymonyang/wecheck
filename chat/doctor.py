@@ -1,13 +1,16 @@
+import logging
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from .models import Doctor, PatientQueue
-from .utils import get_browser, get_queue, print_message, queue_update_patients, queue_update_doctors
+from .utils import get_browser, get_queue, queue_update_patients, queue_update_doctors
+
+logger = logging.getLogger(__name__)
 
 
 class DoctorConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
-        print_message(self.scope["client"][0], self.channel_name, "received", content)
+        print(f"{self.scope['client'][0]}, {self.channel_name}, received, {content}")
         super().send_json(content)
 
     def connect(self):
@@ -90,7 +93,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
             self.send_json({"action": "chat", "message": f"You    : {content['message']}"})
         elif action == "unreserve":
             doctor = Doctor.objects.get(channel=self.channel_name)
-            doctor.patient.status = "queue"
+            doctor.patient.state = "QUEUED"
             doctor.patient.save()
             doctor.patient = None
             doctor.save()
@@ -107,7 +110,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
                 doctor.patient.state = "QUEUED"
                 doctor.patient.save()
                 doctor.patient = None
-            doctor.status = "QUEUED"
+            doctor.state = "QUEUED"
             doctor.status = "ACTIVE"
             doctor.save()
             self.send_json({"action": "queue", "message": get_queue()})

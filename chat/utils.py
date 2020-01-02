@@ -16,10 +16,6 @@ def get_browser(query_string):
     return parse_qs(query_string)[b"browser"][0]
 
 
-def print_message(ip, channel, msg_type, content):
-    print(f"{ip}:{channel.split('!')[1]} {msg_type} {content}")
-
-
 def get_queue():
     return [i.id for i in PatientQueue.objects.filter(state="QUEUED", status="ACTIVE")]
 

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>Chat Room</title>
+    <title>Patient</title>
 </head>
 
 <body>
@@ -25,13 +25,14 @@ var waitTimeout;
 function connect() {
     var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
     function viewArea(areaId) {
-        document.querySelector('#spin').hidden = true;
-        document.querySelector('#startMessage').hidden = true;
-        document.querySelector('#chatArea').hidden = true;
-        document.getElementById(areaId).hidden = false;
+        document.querySelector('#spin').hidden = (areaId != "spin");
+        document.querySelector('#startMessage').hidden = (areaId != "startMessage");
+        document.querySelector('#chatArea').hidden = (areaId != "chatArea");
     }
-    viewArea("startMessage");
-    clearTimeout(waitTimeout);
+
+    chatSocket.onopen = function (e) {
+        viewArea("startMessage");
+    };
 
     chatSocket.onmessage = function(e) {
         var data = JSON.parse(e.data);
@@ -67,8 +68,9 @@ function connect() {
         console.error('Chat socket closed unexpectedly');
         viewArea("spin");
         setTimeout(function() {
+            console.log("Trying to reconnect")
             connect();
-        }, 1000);
+        }, 2000);
     };
 
     document.querySelector('#chatMessageInput').focus();
