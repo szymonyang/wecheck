@@ -18,62 +18,73 @@
 </body>
 <script>
 const browserTabId = Math.random().toString(36).substring(2);
-var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
 var waitTimeout;
 
 
-function viewArea(areaId) {
-    document.querySelector('#spin').hidden = true;
-    document.querySelector('#startMessage').hidden = true;
-    document.querySelector('#chatArea').hidden = true;
-    document.getElementById(areaId).hidden = false;
+
+function connect() {
+    var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
+    function viewArea(areaId) {
+        document.querySelector('#spin').hidden = true;
+        document.querySelector('#startMessage').hidden = true;
+        document.querySelector('#chatArea').hidden = true;
+        document.getElementById(areaId).hidden = false;
+    }
+    viewArea("startMessage");
+    clearTimeout(waitTimeout);
+
+    chatSocket.onmessage = function(e) {
+        var data = JSON.parse(e.data);
+
+        if (data.action == 'start_chat'){
+            viewArea("chatArea")
+            clearTimeout(waitTimeout);
+        } else if (data.action == 'queue'){
+            document.querySelector('#startMessage').innerHTML = data.message;
+        } else if (data.action == 'reserve'){
+            viewArea("startMessage")
+            clearTimeout(waitTimeout);
+            document.querySelector('#startMessage').innerHTML = "A doctor is viewing your case now.";
+        } else if (data.action == 'chat'){
+            document.querySelector('#chatLog').value += (data.message + '\n');
+        } else if (data.action == 'doctor_left'){
+            alert(data.message);
+        } else if (data.action == 'end_chat'){
+            document.querySelector('#chatLog').value += ('The doctor has ended the chat\n');
+            document.querySelector('#chatMessageInput').hidden = true;
+            document.querySelector('#chatMessageSubmit').hidden = true;
+        } else if (data.action == 'wait') {
+            viewArea("spin")
+            waitTimeout = setTimeout(function(){
+                alert("The doctor lost connectivity.");
+                chatSocket.send(JSON.stringify({'action':'wait_timeout'}));
+            }, 10000);
+        }
+    };
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+        viewArea("spin");
+        setTimeout(function() {
+            connect();
+        }, 1000);
+    };
+
+    document.querySelector('#chatMessageInput').focus();
+    document.querySelector('#chatMessageInput').onkeyup = function(e) {
+        if (e.keyCode === 13) { // enter, return
+            document.querySelector('#chatMessageSubmit').click();
+        }
+    };
+    document.querySelector('#chatMessageSubmit').onclick = function(e) {
+        var messageInputDom = document.querySelector('#chatMessageInput');
+        var message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({'action':'chat', 'message': message}));
+        messageInputDom.value = '';
+    };
 }
 
-chatSocket.onmessage = function(e) {
-    var data = JSON.parse(e.data);
-
-    if (data.action == 'start_chat'){
-        viewArea("startMessage")
-        clearTimeout(waitTimeout);
-    } else if (data.action == 'queue'){
-        document.querySelector('#startMessage').innerHTML = data.message;
-    } else if (data.action == 'reserve'){
-        viewArea("startMessage")
-        clearTimeout(waitTimeout);
-        document.querySelector('#startMessage').innerHTML = "A doctor is viewing your case now.";
-    } else if (data.action == 'chat'){
-        document.querySelector('#chatLog').value += (data.message + '\n');
-    } else if (data.action == 'doctor_left'){
-        alert(data.message);
-    } else if (data.action == 'end_chat'){
-        document.querySelector('#chatLog').value += ('The doctor has ended the chat\n');
-        document.querySelector('#chatMessageInput').hidden = true;
-        document.querySelector('#chatMessageSubmit').hidden = true;
-    } else if (data.action == 'wait') {
-        viewArea("spin")
-        waitTimeout = setTimeout(function(){
-            alert("The doctor lost connectivity.");
-            chatSocket.send(JSON.stringify({'action':'wait_timeout'}));
-        }, 3000);
-    }
-};
-
-chatSocket.onclose = function(e) {
-    console.error('Chat socket closed unexpectedly');
-};
-
-document.querySelector('#chatMessageInput').focus();
-document.querySelector('#chatMessageInput').onkeyup = function(e) {
-    if (e.keyCode === 13) { // enter, return
-        document.querySelector('#chatMessageSubmit').click();
-    }
-};
-document.querySelector('#chatMessageSubmit').onclick = function(e) {
-    var messageInputDom = document.querySelector('#chatMessageInput');
-    var message = messageInputDom.value;
-    chatSocket.send(JSON.stringify({'action':'chat', 'message': message}));
-    messageInputDom.value = '';
-};
+connect();
 </script>
 <style type="text/css">#spin{width:40px;height:40px;background-color:#333;margin:100px auto;-webkit-animation:sk-rotateplane 1.2s infinite ease-in-out;animation:sk-rotateplane 1.2s infinite ease-in-out}@-webkit-keyframes sk-rotateplane{0%{-webkit-transform:perspective(120px)}50%{-webkit-transform:perspective(120px) rotateY(180deg)}100%{-webkit-transform:perspective(120px) rotateY(180deg) rotateX(180deg)}}@keyframes sk-rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0);-webkit-transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0);-webkit-transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>
 </html>

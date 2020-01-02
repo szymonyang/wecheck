@@ -4,6 +4,9 @@ from channels.generic.websocket import JsonWebsocketConsumer
 from .models import Doctor, PatientQueue
 from .utils import print_message, queue_update_doctors, queue_update_patients, get_browser, queue_message
 
+def show_patients():
+    for p in PatientQueue.objects.all():
+        print(f"{p.id} {p.browser} {p.channel} {p.state} {p.status}")
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
@@ -12,8 +15,11 @@ class PatientConsumer(JsonWebsocketConsumer):
 
     def connect(self):
         browser = get_browser(self.scope["query_string"])
-        patient, _ = PatientQueue.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
+        show_patients()
+        patient, created = PatientQueue.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
+        show_patients()
         self.accept()
+        print(f"Patient {'' if created else 're'}joined")
 
         if patient.state == "QUEUED":
             if patient.status != "ACTIVE":

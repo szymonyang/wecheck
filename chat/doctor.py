@@ -12,10 +12,11 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
     def connect(self):
         browser = get_browser(self.scope["query_string"])
-        doctor, _ = Doctor.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
+        doctor, created = Doctor.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
         self.accept()
 
-        if doctor.state == "QUEUED":
+        print(f"Doctor {'' if created else 're'}joined")
+        if not doctor.patient:
             if doctor.status != "ACTIVE":
                 doctor.status = "ACTIVE"
                 doctor.save()
