@@ -28,6 +28,7 @@
 const browserTabId = Math.random().toString(36).substring(2);
 var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/doctor?browser=' + browserTabId);
 
+
 function viewArea(areaId) {
     document.querySelector('#queue_area').hidden = true;
     document.querySelector('#chat_area').hidden = true;

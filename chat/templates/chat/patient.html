@@ -8,35 +8,53 @@
 
 <body>
     <h2>Quro Chat - Patient Site</h2>
-    <p id="start-message">You are in the queue. A doctor will be with you soon.</p>
+    <div id="spin" hidden></div>
+    <p id="startMessage">You are in the queue. A doctor will be with you soon.</p>
     <div id="chatArea" hidden>
-        <textarea id="chat-log" cols="100" rows="20"></textarea><br />
-        <input id="chat-message-input" type="text" size="100" /><br />
-        <input id="chat-message-submit" type="button" value="Send" />
+        <textarea id="chatLog" cols="100" rows="20"></textarea><br />
+        <input id="chatMessageInput" type="text" size="100" /><br />
+        <input id="chatMessageSubmit" type="button" value="Send" />
     </div>
 </body>
 <script>
 const browserTabId = Math.random().toString(36).substring(2);
 var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
+var waitTimeout;
+
+
+function viewArea(areaId) {
+    document.querySelector('#spin').hidden = true;
+    document.querySelector('#startMessage').hidden = true;
+    document.querySelector('#chatArea').hidden = true;
+    document.getElementById(areaId).hidden = false;
+}
 
 chatSocket.onmessage = function(e) {
     var data = JSON.parse(e.data);
 
     if (data.action == 'start_chat'){
-        document.querySelector('#chatArea').hidden = false;
-        document.querySelector('#start-message').hidden = true;
+        viewArea("startMessage")
+        clearTimeout(waitTimeout);
     } else if (data.action == 'queue'){
-        document.querySelector('#start-message').innerHTML = data.message;
+        document.querySelector('#startMessage').innerHTML = data.message;
     } else if (data.action == 'reserve'){
-        document.querySelector('#start-message').innerHTML = "A doctor is viewing your case now.";
+        viewArea("startMessage")
+        clearTimeout(waitTimeout);
+        document.querySelector('#startMessage').innerHTML = "A doctor is viewing your case now.";
     } else if (data.action == 'chat'){
-        document.querySelector('#chat-log').value += (data.message + '\n');
+        document.querySelector('#chatLog').value += (data.message + '\n');
     } else if (data.action == 'doctor_left'){
         alert(data.message);
     } else if (data.action == 'end_chat'){
-        document.querySelector('#chat-log').value += ('The doctor has ended the chat\n');
-        document.querySelector('#chat-message-input').hidden = true;
-        document.querySelector('#chat-message-submit').hidden = true;
+        document.querySelector('#chatLog').value += ('The doctor has ended the chat\n');
+        document.querySelector('#chatMessageInput').hidden = true;
+        document.querySelector('#chatMessageSubmit').hidden = true;
+    } else if (data.action == 'wait') {
+        viewArea("spin")
+        waitTimeout = setTimeout(function(){
+            alert("The doctor lost connectivity.");
+            chatSocket.send(JSON.stringify({'action':'wait_timeout'}));
+        }, 3000);
     }
 };
 
@@ -44,18 +62,18 @@ chatSocket.onclose = function(e) {
     console.error('Chat socket closed unexpectedly');
 };
 
-document.querySelector('#chat-message-input').focus();
-document.querySelector('#chat-message-input').onkeyup = function(e) {
+document.querySelector('#chatMessageInput').focus();
+document.querySelector('#chatMessageInput').onkeyup = function(e) {
     if (e.keyCode === 13) { // enter, return
-        document.querySelector('#chat-message-submit').click();
+        document.querySelector('#chatMessageSubmit').click();
     }
 };
-document.querySelector('#chat-message-submit').onclick = function(e) {
-    var messageInputDom = document.querySelector('#chat-message-input');
+document.querySelector('#chatMessageSubmit').onclick = function(e) {
+    var messageInputDom = document.querySelector('#chatMessageInput');
     var message = messageInputDom.value;
     chatSocket.send(JSON.stringify({'action':'chat', 'message': message}));
     messageInputDom.value = '';
 };
 </script>
-
+<style type="text/css">#spin{width:40px;height:40px;background-color:#333;margin:100px auto;-webkit-animation:sk-rotateplane 1.2s infinite ease-in-out;animation:sk-rotateplane 1.2s infinite ease-in-out}@-webkit-keyframes sk-rotateplane{0%{-webkit-transform:perspective(120px)}50%{-webkit-transform:perspective(120px) rotateY(180deg)}100%{-webkit-transform:perspective(120px) rotateY(180deg) rotateX(180deg)}}@keyframes sk-rotateplane{0%{transform:perspective(120px) rotateX(0) rotateY(0);-webkit-transform:perspective(120px) rotateX(0) rotateY(0)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0);-webkit-transform:perspective(120px) rotateX(-180.1deg) rotateY(0)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg);-webkit-transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}</style>
 </html>
