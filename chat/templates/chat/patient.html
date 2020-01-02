@@ -48,8 +48,6 @@ function connect() {
             document.querySelector('#startMessage').innerHTML = "A doctor is viewing your case now.";
         } else if (data.action == 'chat'){
             document.querySelector('#chatLog').value += (data.message + '\n');
-        } else if (data.action == 'doctor_left'){
-            alert(data.message);
         } else if (data.action == 'end_chat'){
             document.querySelector('#chatLog').value += ('The doctor has ended the chat\n');
             document.querySelector('#chatMessageInput').hidden = true;

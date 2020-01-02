@@ -69,8 +69,6 @@ function connect() {
             updateQueue(data.message);
         } else if (data.action == "chat") {
             document.querySelector('#chat-log').value += (data.message + '\n');
-        } else if (data.action == "patient_left") {
-            alert("Patient left");
         } else if (data.action == "wait") {
             viewArea("spin")
             alert("Waiting for patient. Timeout 10s.");

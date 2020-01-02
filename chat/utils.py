@@ -1,4 +1,5 @@
 from urllib.parse import parse_qs
+
 from asgiref.sync import async_to_sync
 
 from .models import Doctor, PatientQueue

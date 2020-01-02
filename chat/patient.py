@@ -1,22 +1,35 @@
+from typing import Any, Dict
+
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from .models import Doctor, PatientQueue
-from .utils import queue_update_doctors, queue_update_patients, get_browser, queue_message
+from .utils import (get_browser, queue_message, queue_update_doctors,
+                    queue_update_patients)
 
 
 class PatientConsumer(JsonWebsocketConsumer):
-    def send_json(self, content):
+    def send_json(self, content: Dict[str, Any]):
         print(f"{self.scope['client'][0]}, {self.channel_name}, received, {content}")
         super().send_json(content)
 
     def connect(self):
+        """Deal with client trying to make new websocket connection
+
+        1. Get browser tab id
+        2. Find patient in database (or create if new patient)
+        3. Accept the websocket connection.
+        4. If the patient is in the state "QUEUED" (which is the default state for new patients) add them to the queue.
+        5. Otherwise the patient is paired with a doctor.
+        6. If the doctor is waiting for the patient then reconnect them.
+        7. Otherwise the doctor is not connected, so tell the patient to wait for their doctor.
+        """
+
         browser = get_browser(self.scope["query_string"])
         patient, created = PatientQueue.objects.update_or_create(
             browser=browser, defaults={"channel": self.channel_name}
         )
         self.accept()
-        print(f"Patient {'' if created else 're'}joined")
 
         if patient.state == "QUEUED":
             if patient.status != "ACTIVE":
@@ -44,6 +57,13 @@ class PatientConsumer(JsonWebsocketConsumer):
                 self.send_json({"action": "wait"})
 
     def disconnect(self, close_code):
+        """Deal with client disconnect
+
+        1. Update the state of the patient in the databse.
+        2. If the doctor was connected with a patient then tell the patient to wait for the doctor.
+        3. Otherwise update the queue because a patient just left the queue.
+        """
+
         patient = PatientQueue.objects.get(channel=self.channel_name)
         patient.status = "USER_DC"
         patient.save()
@@ -57,7 +77,17 @@ class PatientConsumer(JsonWebsocketConsumer):
             queue_update_patients(self.channel_layer)
             queue_update_doctors(self.channel_layer)
 
-    def receive_json(self, content):
+    def receive_json(self, content: Dict[str, Any]):
+        """
+        Receive a message and process the triggered action.
+        The messages recieved by this method come from the patient client.
+
+        Parameters
+        ----------
+        content
+            JSON structured dictionary. Should always have a key "action".
+        """
+
         print(f"{self.scope['client'][0]}, {self.channel_name}, sent, {content}")
         action = content.get("action")
         if action == "chat":
@@ -65,11 +95,11 @@ class PatientConsumer(JsonWebsocketConsumer):
         elif action == "wait_timeout":
             self.wait_timeout()
 
-    def message(self, doctor, message):
-        message["type"] = "send_json"
-        async_to_sync(self.channel_layer.send)(doctor.channel, message)
+    def message(self, doctor, content: Dict[str, Any]):
+        content["type"] = "send_json"
+        async_to_sync(self.channel_layer.send)(doctor.channel, content)
 
-    def chat(self, message):
+    def chat(self, message: str):
         patient = PatientQueue.objects.get(channel=self.channel_name)
         if patient.state == "CHAT":
             doctor = Doctor.objects.get(patient=patient)
