@@ -22,10 +22,10 @@ class DoctorConsumer(JsonWebsocketConsumer):
                 doctor.save()
             self.send_json({"action": "queue", "message": get_queue()})
         else:
-            assigned_patient = doctor.patient
-            if assigned_patient.status == "WAIT":
-                assigned_patient.status = "ACTIVE"
-                assigned_patient.save()
+            patient = doctor.patient
+            if patient.status == "WAIT":
+                patient.status = "ACTIVE"
+                patient.save()
                 doctor.status = "ACTIVE"
                 doctor.save()
                 if patient.state == "RESERVED":
@@ -38,7 +38,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
                     )
             else:
                 doctor.status = "WAIT"
-                doctor.save
+                doctor.save()
                 self.send_json({"action": "wait"})
 
     def disconnect(self, close_code):
@@ -69,7 +69,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         elif action == "start_chat":
             # Update model state
             doctor = Doctor.objects.get(channel=self.channel_name)
-            doctor.patient.status = "chatting"
+            doctor.patient.status = "CHAT"
             doctor.patient.save()
 
             self.send_json({"action": "chat", "message": "You are now chatting with the patient"})
@@ -103,11 +103,11 @@ class DoctorConsumer(JsonWebsocketConsumer):
             self.send_json({"action": "queue", "message": get_queue()})
         elif action == "wait_timeout":
             doctor = Doctor.objects.get(channel=self.channel_name)
-            patient = doctor.patient
-            patient.state = "QUEUED"
-            patient.save()
+            if doctor.patient:
+                doctor.patient.state = "QUEUED"
+                doctor.patient.save()
+                doctor.patient = None
             doctor.status = "QUEUED"
             doctor.status = "ACTIVE"
-            doctor.patient = None
             doctor.save()
             self.send_json({"action": "queue", "message": get_queue()})

@@ -4,9 +4,6 @@ from channels.generic.websocket import JsonWebsocketConsumer
 from .models import Doctor, PatientQueue
 from .utils import print_message, queue_update_doctors, queue_update_patients, get_browser, queue_message
 
-def show_patients():
-    for p in PatientQueue.objects.all():
-        print(f"{p.id} {p.browser} {p.channel} {p.state} {p.status}")
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content):
@@ -15,9 +12,7 @@ class PatientConsumer(JsonWebsocketConsumer):
 
     def connect(self):
         browser = get_browser(self.scope["query_string"])
-        show_patients()
         patient, created = PatientQueue.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
-        show_patients()
         self.accept()
         print(f"Patient {'' if created else 're'}joined")
 
@@ -38,7 +33,7 @@ class PatientConsumer(JsonWebsocketConsumer):
                 if patient.state == "RESERVED":
                     self.send_json({"action": "reserve"})
                     async_to_sync(self.channel_layer.send)(
-                        doctor.channel, {"type": "send_json", "action": "reserve", "message": patient.id}
+                        doctor.channel, {"type": "send_json", "action": "reserve"}
                     )
                 elif patient.state == "CHAT":
                     self.send_json({"action": "start_chat"})
@@ -69,7 +64,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         action = content.get("action")
         if action == "chat":
             patient = PatientQueue.objects.get(channel=self.channel_name)
-            if patient.status == "chatting":
+            if patient.status == "CHAT":
                 doctor = Doctor.objects.get(patient=patient)
                 async_to_sync(self.channel_layer.send)(
                     doctor.channel, {"type": "send_json", "action": "chat", "message": f"Patient: {content['message']}"}

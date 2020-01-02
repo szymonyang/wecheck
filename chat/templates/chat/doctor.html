@@ -73,13 +73,18 @@ function connect() {
             alert("Patient left");
         } else if (data.action == "wait") {
             viewArea("spin")
+            alert("Waiting for patient. Timeout 10s.");
             waitTimeout = setTimeout(function(){
                 alert("The patient lost connectivity.");
                 chatSocket.send(JSON.stringify({'action':'wait_timeout'}));
             }, 10000);
+        } else if (data.action == "reserve") {
+            viewArea("cdss_area");
+        } else if (data.action == "start_chat") {
+            viewArea("chat_area");
         } else {
-            console.error("Unsupported message type")
-            console.error(data)
+            console.error("Unsupported message type");
+            console.error(data);
         }
     };
 
