@@ -19,11 +19,11 @@
 <script>
 const browserTabId = Math.random().toString(36).substring(2);
 var waitTimeout;
-
+var chatSocket;
 
 
 function connect() {
-    var chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
+    chatSocket = new WebSocket('ws://' + window.location.host + '/ws/patient?browser=' + browserTabId);
     function viewArea(areaId) {
         document.querySelector('#spin').hidden = (areaId != "spin");
         document.querySelector('#startMessage').hidden = (areaId != "startMessage");

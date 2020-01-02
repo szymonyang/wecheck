@@ -56,7 +56,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
             async_to_sync(self.channel_layer.send)(doctor.patient.channel, {"type": "send_json", "action": "wait"})
 
     def receive_json(self, content):
-        print_message(self.scope["client"][0], self.channel_name, "sent", content)
+        print(f"{self.scope['client'][0]}, {self.channel_name}, sent, {content}")
         action = content.get("action")
         if action == "reserve":
             patient = PatientQueue.objects.get(id=content["message"])
@@ -72,7 +72,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         elif action == "start_chat":
             # Update model state
             doctor = Doctor.objects.get(channel=self.channel_name)
-            doctor.patient.status = "CHAT"
+            doctor.patient.state = "CHAT"
             doctor.patient.save()
 
             self.send_json({"action": "chat", "message": "You are now chatting with the patient"})

@@ -60,11 +60,11 @@ class PatientConsumer(JsonWebsocketConsumer):
             queue_update_doctors(self.channel_layer)
 
     def receive_json(self, content):
-        print_message(self.scope["client"][0], self.channel_name, "sent", content)
+        print(f"{self.scope['client'][0]}, {self.channel_name}, sent, {content}")
         action = content.get("action")
         if action == "chat":
             patient = PatientQueue.objects.get(channel=self.channel_name)
-            if patient.status == "CHAT":
+            if patient.state == "CHAT":
                 doctor = Doctor.objects.get(patient=patient)
                 async_to_sync(self.channel_layer.send)(
                     doctor.channel, {"type": "send_json", "action": "chat", "message": f"Patient: {content['message']}"}
