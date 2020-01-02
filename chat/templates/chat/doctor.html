@@ -71,7 +71,6 @@ function connect() {
             document.querySelector('#chat-log').value += (data.message + '\n');
         } else if (data.action == "wait") {
             viewArea("spin")
-            alert("Waiting for patient. Timeout 10s.");
             waitTimeout = setTimeout(function(){
                 alert("The patient lost connectivity.");
                 chatSocket.send(JSON.stringify({'action':'wait_timeout'}));

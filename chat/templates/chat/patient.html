@@ -54,7 +54,6 @@ function connect() {
             document.querySelector('#chatMessageSubmit').hidden = true;
         } else if (data.action == 'wait') {
             viewArea("spin")
-            alert("Waiting for doctor. Timeout 10s.");
             waitTimeout = setTimeout(function(){
                 alert("The doctor lost connectivity.");
                 chatSocket.send(JSON.stringify({'action':'wait_timeout'}));
