@@ -103,6 +103,9 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
         Parameters
         ----------
+        patient
+            Django ORM object with a field .channel which is a string representing channel_name
+
         content
             The action and other data to send to the patient.
         """

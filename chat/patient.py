@@ -96,10 +96,22 @@ class PatientConsumer(JsonWebsocketConsumer):
             self.wait_timeout()
 
     def message(self, doctor, content: Dict[str, Any]):
+        """Send a message to the doctor
+
+        Parameters
+        ----------
+        doctor
+            Django ORM object with a field .channel which is a string representing channel_name
+
+        content
+            The action and other data to send to the patient.
+        """
         content["type"] = "send_json"
         async_to_sync(self.channel_layer.send)(doctor.channel, content)
 
     def chat(self, message: str):
+        """Send a text message to the doctor."""
+
         patient = PatientQueue.objects.get(channel=self.channel_name)
         if patient.state == "CHAT":
             doctor = Doctor.objects.get(patient=patient)
@@ -107,6 +119,8 @@ class PatientConsumer(JsonWebsocketConsumer):
             self.send_json({"action": "chat", "message": f"You   : {message}"})
 
     def wait_timeout(self):
+        """The patient is finished waiting for the doctor and stops waiting for the doctor."""
+
         patient = PatientQueue.objects.get(channel=self.channel_name)
         patient.state = "QUEUED"
         patient.status = "ACTIVE"
