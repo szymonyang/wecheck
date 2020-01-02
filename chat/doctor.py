@@ -11,10 +11,34 @@ class DoctorConsumer(JsonWebsocketConsumer):
         super().send_json(content)
 
     def connect(self):
-        print(f"Doctor joined with browser {get_browser(self.scope['query_string'])}")
-        Doctor.objects.create(channel=self.channel_name)
+        browser = get_browser(self.scope["query_string"])
+        doctor, _ = Doctor.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
         self.accept()
-        self.send_json({"action": "queue", "message": get_queue()})
+
+        if doctor.state == "QUEUED":
+            if doctor.status != "ACTIVE":
+                doctor.status = "ACTIVE"
+                doctor.save()
+            self.send_json({"action": "queue", "message": get_queue()})
+        else:
+            assigned_patient = doctor.patient
+            if assigned_patient.status == "WAIT":
+                assigned_patient.status = "ACTIVE"
+                assigned_patient.save()
+                doctor.status = "ACTIVE"
+                doctor.save()
+                if patient.state == "RESERVED":
+                    self.send_json({"action": "reserve"})
+                    async_to_sync(self.channel_layer.send)(patient.channel, {"type": "send_json", "action": "reserve"})
+                elif patient.state == "CHAT":
+                    self.send_json({"action": "start_chat"})
+                    async_to_sync(self.channel_layer.send)(
+                        patient.channel, {"type": "send_json", "action": "start_chat"}
+                    )
+            else:
+                doctor.status = "WAIT"
+                doctor.save
+                self.send_json({"action": "wait"})
 
     def disconnect(self, close_code):
         doctor = Doctor.objects.get(channel=self.channel_name)
@@ -30,7 +54,7 @@ class DoctorConsumer(JsonWebsocketConsumer):
         action = content.get("action")
         if action == "reserve":
             patient = PatientQueue.objects.get(id=content["message"])
-            patient.status = "reserved"
+            patient.state = "RESERVED"
             patient.save()
             doctor = Doctor.objects.get(channel=self.channel_name)
             doctor.patient = patient

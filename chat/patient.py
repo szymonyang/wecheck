@@ -11,7 +11,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         super().send_json(content)
 
     def connect(self):
-        browser = get_browser(self.scope['query_string'])
+        browser = get_browser(self.scope["query_string"])
         patient, _ = PatientQueue.objects.update_or_create(browser=browser, defaults={"channel": self.channel_name})
         self.accept()
 
@@ -23,16 +23,22 @@ class PatientConsumer(JsonWebsocketConsumer):
             queue_update_doctors(self.channel_layer)
         else:
             # Patient is trying to rejoin with their doctor
-            assigned_doctor = Doctor.objects.get(patient=patient)
-            if assigned_doctor.status == "WAIT":
-                assigned_doctor.status = "ACTIVE"
-                assigned_doctor.save()
+            doctor = Doctor.objects.get(patient=patient)
+            if doctor.status == "WAIT":
+                doctor.status = "ACTIVE"
+                doctor.save()
                 patient.status = "ACTIVE"
                 patient.save()
                 if patient.state == "RESERVED":
                     self.send_json({"action": "reserve"})
+                    async_to_sync(self.channel_layer.send)(
+                        doctor.channel, {"type": "send_json", "action": "reserve", "message": patient.id}
+                    )
                 elif patient.state == "CHAT":
                     self.send_json({"action": "start_chat"})
+                    async_to_sync(self.channel_layer.send)(
+                        doctor.channel, {"type": "send_json", "action": "start_chat"}
+                    )
             else:
                 patient.status = "WAIT"
                 patient.save()
@@ -66,11 +72,11 @@ class PatientConsumer(JsonWebsocketConsumer):
         elif action == "wait_timeout":
             # The patient was waiting for a doctor, but this doctor has not returned
             patient = PatientQueue.objects.get(channel=self.channel_name)
-            patient.state="QUEUED"
-            patient.status="ACTIVE"
+            patient.state = "QUEUED"
+            patient.status = "ACTIVE"
             patient.save()
             doctor = Doctor.objects.get(patient=patient)
-            doctor.patient=None
+            doctor.patient = None
             doctor.save()
             queue_update_patients(self.channel_layer)
             queue_update_doctors(self.channel_layer)
