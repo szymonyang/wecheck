@@ -42,12 +42,14 @@ class DoctorConsumer(JsonWebsocketConsumer):
 
     def disconnect(self, close_code):
         doctor = Doctor.objects.get(channel=self.channel_name)
+        doctor.status = "USER_DC"
+        doctor.save()
+
         if doctor.patient:
-            async_to_sync(self.channel_layer.send)(
-                doctor.patient.channel,
-                {"type": "send_json", "action": "doctor_left", "message": "The doctor left the chat. Exiting."},
-            )
-        doctor.delete()
+            patient = doctor.patient
+            patient.status = "WAIT"
+            patient.save()
+            async_to_sync(self.channel_layer.send)(doctor.patient.channel, {"type": "send_json", "action": "wait"})
 
     def receive_json(self, content):
         print_message(self.scope["client"][0], self.channel_name, "sent", content)
@@ -97,4 +99,14 @@ class DoctorConsumer(JsonWebsocketConsumer):
             doctor = Doctor.objects.get(channel=self.channel_name)
             async_to_sync(self.channel_layer.send)(doctor.patient.channel, {"type": "send_json", "action": "end_chat"})
             doctor.patient.delete()
+            self.send_json({"action": "queue", "message": get_queue()})
+        elif action == "wait_timeout":
+            doctor = Doctor.objects.get(channel=self.channel_name)
+            patient = doctor.patient
+            patient.state = "QUEUED"
+            patient.save()
+            doctor.status = "QUEUED"
+            doctor.status = "ACTIVE"
+            doctor.patient = None
+            doctor.save()
             self.send_json({"action": "queue", "message": get_queue()})
