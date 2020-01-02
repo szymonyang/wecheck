@@ -10,6 +10,8 @@ from .utils import (get_browser, queue_message, queue_update_doctors,
 
 class PatientConsumer(JsonWebsocketConsumer):
     def send_json(self, content: Dict[str, Any]):
+        """For logging"""
+
         print(f"{self.scope['client'][0]}, {self.channel_name}, received, {content}")
         super().send_json(content)
 
@@ -106,6 +108,7 @@ class PatientConsumer(JsonWebsocketConsumer):
         content
             The action and other data to send to the patient.
         """
+
         content["type"] = "send_json"
         async_to_sync(self.channel_layer.send)(doctor.channel, content)
 
